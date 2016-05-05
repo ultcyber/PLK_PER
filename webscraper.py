@@ -6,11 +6,10 @@ from functools import reduce
 import re
 import requests
 
-
 # Prepare the xml for parsing
 
-def cook_soup(url, headers):
-	r = requests.post(url, headers=headers)
+def cook_soup(url, data):
+	r = requests.post(url, data=data)
 	print(r.status_code)
 	return BeautifulSoup(r.text, "lxml")
 
@@ -56,30 +55,30 @@ def parse(soup, sibl_end, team=False, name=False):
 			# print(a) # Just for testing
 			if team in a.string:
 				break
-		return find_column(trows[ind])
+		return float(find_column(trows[ind]))
 	elif name:
 		for ind, row in enumerate(prows):
 			a = row.find("strong")
 			# print(a) # Just for testing
 			if name in a.string:
 				break
-		return find_column(prows[ind])
+		return float(find_column(prows[ind]))
 	else:
 		results = []
 		for row in trows:
 			results.append(find_column(row))
 		#print(results) # Just for testing
 		average = reduce(lambda x, y: float(x)+float(y), results)/(len(results)+1)
-		return print(round(average,2))
+		return round(average,2)
 
 
 # Calculating the league stats
 
-team_soup = cook_soup(url = 'http://plk.pl/statystyki/xml/1.html', headers = {'f':1, 's':18, 'o':'Pkt', 'wh':'g1', 'r':'0', 'nocontent':1, 'X-Requested-With': 'XMLHttpRequest'})
+team_soup = cook_soup(url = 'http://plk.pl/statystyki/xml/1.html', data = {'f':1, 's':18, 'o':'Pkt', 'wh':'g1', 'r':'0', 'nocontent':1, 'X-Requested-With': 'XMLHttpRequest'})
 
 lpoints = parse(team_soup, 4)
-lfieldgoals = parse(team_soup, 6)
-lafieldgoals = parse(team_soup, 8)
+lfieldgoals = parse(team_soup, 18)
+lafieldgoals = parse(team_soup, 20)
 lfreethrows = parse(team_soup, 24)
 lafreethrows = parse(team_soup, 26)
 lorebounds = parse(team_soup, 30)
@@ -92,16 +91,46 @@ lturnovers = parse(team_soup, 42)
 # Initiate a new PERCalculator for a player
 
 player = PERCalculator("Danny Gibson")
+
+# Calculate team stats
+
 player.tassists = parse(team_soup, 36, team = "PGE Turów Zgorzelec")
 player.tfieldgoals = parse(team_soup, 6, team = "PGE Turów Zgorzelec" )
 
-minute_soup = cook_soup(url = 'http://plk.pl/statystyki/xml/0.html', headers = {'f':0, 's':18, 'o':0, 'wh':'g1', 'r':'0', 'nocontent':0, 'X-Requested-With': 'XMLHttpRequest'})
-player.minutes = parse(minute_soup, 6, name=player.name)
-print(player.minutes)
-assists_soup = cook_soup(url = 'http://plk.pl/statystyki/xml/0.html', headers = {'f':0, 's':"l8", 'o':0, 'wh':'g9', 'r':'0', 'nocontent':0, 'X-Requested-With': 'XMLHttpRequest'}) 
-player.assists = parse(assists_soup, 6, name=player.name)
-print(player.assists)
-# steals
-# blocks
-# turnovers
-# pfouls
+# Assigning league stats
+player.lpoints = lpoints
+player.lfieldgoals = lfieldgoals
+player.lafieldgoals = lafieldgoals
+player.lfreethrows = lfreethrows
+player.lafreethrows = lafreethrows
+player.lorebounds = lorebounds
+player.ltrebounds = ltrebounds
+player.lassists = lassists
+player.lpfouls = lpfouls
+player.lturnovers = lturnovers
+
+# Calculate individual stats
+
+# Help function for assigning individual attributes
+def ass_ind_attr(wh, stat, sib=6):
+	soup = cook_soup(url = 'http://plk.pl/statystyki/xml/0.html', data = {'f':0, 's':18, 'o':0, 'wh':wh, 'r':'0', 'nocontent':0, 'X-Requested-With': 'XMLHttpRequest'})
+	setattr(player, stat, parse(soup, sib, name=player.name))
+
+ass_ind_attr("g0", "minutes")
+ass_ind_attr("g7", "assists")
+ass_ind_attr("g9", "steals")
+ass_ind_attr("g10", "blocks")
+ass_ind_attr("g8", "turnovers")
+ass_ind_attr("g11", "pfouls")
+ass_ind_attr("g4", "threepoints")
+ass_ind_attr("g2", "fieldgoals")
+ass_ind_attr("g2", "afieldgoals", sib=8)
+ass_ind_attr("g5", "freethrows")
+ass_ind_attr("g5", "afreethrows", sib=8)
+
+player.calculateDRBpct()
+player.calculateVOP()
+player.calculateFactor()
+
+print(vars(player))
+player.calculateuPER()
