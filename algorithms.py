@@ -1,15 +1,14 @@
 class PERCalculator(object):
-     def __init__(self, firstname, lastname):
-          self.firstname = firstname
-          self.lastname = lastname
+     def __init__(self, name):
+          self.name = name
 
-     # Different statistics' setters
+     # Different statistics' setters - just for making the other functions work, to be removed
 
      def setGeneralStats(self, minutes, steals, assists, blocks, turnovers, pfouls):
           self.minutes = minutes
           self.assists = assists
           self.steals = steals
-          self. blocks = blocks
+          self.blocks = blocks
           self.turnovers = turnovers
           self.pfouls = pfouls
 
@@ -70,7 +69,3 @@ class PERCalculator(object):
           - self.pfouls * ((self.lafreethrows / self.lpfouls) - 0.44 * (self.afreethrows / self.lpfouls) * self.VOP) ) )
 
           return uPER
-
-test = PERCalculator(firstname = "Mateusz", lastname="Trybulec")
-print(test.firstname)
-print(test.calculateuPER)
