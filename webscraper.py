@@ -4,18 +4,21 @@ from algorithms import PERCalculator
 from bs4 import BeautifulSoup
 import requests
 from functools import reduce
+import re
 
-# Initiate a new PERCalculator for a player
-player = PERCalculator("Mateusz", "Trybulec")
+# Capturing AJAX and parsing
 
-# Define the league stats
-
-# Team stats AJAX capture
-
-
-
-def teamparse(headers, sibl_end):
+def teamparse(headers, sibl_end, team=False):
 	
+	# Help function
+	# Search for next sibling, i.e. column until the specified number (determined by the sibl_end parameter)
+	def find_column(element):
+		count = 0
+		while count < sibl_end:
+			element = element.next_sibling
+			count += 1
+		return element.string
+
 	headers['X-Requested-With'] = 'XMLHttpRequest'
 	r = requests.post('http://plk.pl/statystyki/xml/1.html', headers=headers)
 	print(r.status_code)
@@ -23,22 +26,26 @@ def teamparse(headers, sibl_end):
 	
 	# Find teams' rows
 	rows = soup("td", class_="druzyna")
-	
-	# Create an array for the results
-	results = []
-	
-	#print(results) <--- Just for testing
-	
-	# For each row, calculate the appropriate next sibling (determined by the sibl_end parameter)
-	for element in rows:
-		count = 0
-		while count < sibl_end:
-			element = element.next_sibling
-			count += 1
-		results.append(element.string)
 
-	average = reduce(lambda x, y: float(x)+float(y), results)/(len(results)+1)
-	return round(average,2)
+	# If the team parameter is specified - return team stats. If not, return League stats
+	if team:
+	# Find the team's row
+		for ind, row in enumerate(rows):
+			a = row.find("strong")
+			print(a)
+			if team in a.string:
+				break
+		return find_column(rows[ind])
+	else:
+		results = []
+		for row in rows:
+			results.append(find_column(row))
+		#print(results) # Just for testing
+		average = reduce(lambda x, y: float(x)+float(y), results)/(len(results)+1)
+		return round(average,2)
+
+
+# Calculating the league stats
 
 lpoints = teamparse({ 'f':0, 's':18, 'o':'Pkt', 'wh':'g0', 'r':'0', 'nocontent':1}, 4)
 lfieldgoals = teamparse({ 'f':0, 's':18, 'o':'Pkt', 'wh':'g0', 'r':'0', 'nocontent':1}, 6)
@@ -50,3 +57,8 @@ ltrebounds = teamparse({ 'f':0, 's':18, 'o':'Pkt', 'wh':'g0', 'r':'0', 'noconten
 lassists = teamparse({ 'f':0, 's':18, 'o':'Pkt', 'wh':'g0', 'r':'0', 'nocontent':1}, 36)
 lpfouls = teamparse({ 'f':0, 's':18, 'o':'Pkt', 'wh':'g0', 'r':'0', 'nocontent':1}, 38)
 lturnovers = teamparse({ 'f':0, 's':18, 'o':'Pkt', 'wh':'g0', 'r':'0', 'nocontent':1}, 42)
+
+# Initiate a new PERCalculator for a player
+
+player = PERCalculator("Mateusz", "Trybulec")
+player.tassists = teamparse({ 'f':0, 's':18, 'o':'Pkt', 'wh':'g0', 'r':'0', 'nocontent':1}, 36)
