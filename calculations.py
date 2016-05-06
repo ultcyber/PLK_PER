@@ -7,6 +7,9 @@ from functools import reduce
 import re
 import requests
 
+# Creating a blueprint that will later be an object holding soups for individual stats
+# That helps limit the number of requests to the website
+
 class StatSoup(object):
 	def __init__(self):
 		pass
@@ -45,7 +48,8 @@ def main():
 	lturnovers = parse(team_soup, 42)
 	lpointspg = parse(teamaverage_soup, 4)
 
-	# Getting soup for individual stats
+	# Setting object that holds soups for individual stats
+
 	pot = StatSoup()
 	def add_to_pot(wh, stat):
 		soup = cook_soup(url = 'http://plk.pl/statystyki/xml/0.html', data = {'f':0, 's':18, 'o':0, 'wh':wh, 'r':'0', 'nocontent':0, 'X-Requested-With': 'XMLHttpRequest'})
@@ -74,14 +78,36 @@ def main():
 	
 	# First we need to create an aPER dictionary
 	aPERdict = {}
-
+	
 	for key, value in p_t.items():
 		player = PERCalculator(key, value)
 		CalculatePER(player)
 		print("Calculated aPER for {} which is {}".format(player.name, player.aPER))
 		aPERdict[player.name] = player.aPER
-		print(aPERdict)
+		count += 1
+	
+	# Then let's calculate the average league aPER
 
+	def laPERcalc(dictionary):
+		values = dictionary.values()
+		return reduce(lambda x, y: x+y, values)/len(values)
+
+	laPER = laPERcalc(aPERdict)
+
+	# Finally, let's put up the PER!
+
+	PERdict = {}
+
+	for key, value in aPERdict.items():
+		PERdict[key] = value * (15 / laPER)
+
+	# Then write to file
+
+	with open('PER.txt', 'w') as f:
+		for key, value in PERdict.items():
+			f.write('{},{} \n'.format(key, value))
+
+	print("Done!")
 
 def player_team(soup):
 
