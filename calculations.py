@@ -76,6 +76,9 @@ def main():
 
 	# ----------------------------- MAIN LOOP CREATING PER DICTIONARY ---------------------------
 	
+	# TODO : Create a database - make it easy to add additional columns, like minutes for ex. Maybe
+	# (cont.) do a dictionary of "Player name" : player.object ? I don't know yet
+
 	# First we need to create an aPER dictionary
 	aPERdict = {}
 	
@@ -84,7 +87,6 @@ def main():
 		CalculatePER(player)
 		print("Calculated aPER for {} which is {}".format(player.name, player.aPER))
 		aPERdict[player.name] = player.aPER
-		count += 1
 	
 	# Then let's calculate the average league aPER
 
