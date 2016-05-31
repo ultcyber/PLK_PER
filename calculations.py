@@ -6,9 +6,10 @@ from bs4 import BeautifulSoup
 from functools import reduce
 import re
 import requests
+import sqlite3
 
 # Creating a blueprint that will later be an object holding soups for individual stats
-# That helps limit the number of requests to the website
+# That helps drastically limit the number of requests to the website
 
 class StatSoup(object):
 	def __init__(self):
@@ -75,41 +76,172 @@ def main():
 
 
 	# ----------------------------- MAIN LOOP CREATING PER DICTIONARY ---------------------------
-	
-	# TODO : Create a database - make it easy to add additional columns, like minutes for ex. Maybe
-	# (cont.) do a dictionary of "Player name" : player.object ? I don't know yet
 
-	# First we need to create an aPER dictionary
-	aPERdict = {}
-	
-	for key, value in p_t.items():
-		player = PERCalculator(key, value)
-		CalculatePER(player)
-		print("Calculated aPER for {} which is {}".format(player.name, player.aPER))
-		aPERdict[player.name] = player.aPER
-	
-	# Then let's calculate the average league aPER
+	# Create a database file with appropriate columns
 
-	def laPERcalc(dictionary):
-		values = dictionary.values()
-		return reduce(lambda x, y: x+y, values)/len(values)
+	conn = sqlite3.connect('test.db')
+	c = conn.cursor()
+	c.execute('DROP TABLE IF EXISTS players')
+	c.execute('''CREATE TABLE players (
+				id INTEGER PRIMARY KEY,
+				name TEXT,
+				team TEXT,
+				VOP REAL,
+				threepoints REAL,
+				afreethrows REAL,
+				lpointspg REAL,
+				uPER REAL,
+				pfouls REAL,
+				freethrows REAL,
+				afieldgoals REAL,
+				fieldgoals REAL,
+				lpfouls REAL,
+				orebounds REAL,
+				ePA REAL,
+				lfreethrows REAL,
+				lfieldgoals REAL,
+				lturnovers REAL,
+				lorebounds REAL,
+				turnovers REAL,
+				lassists REAL,
+				assists REAL,
+				tafieldgoals REAL,
+				lpoints REAL,
+				factor REAL,
+				tpointspg REAL,
+				aPER REAL,
+				lafreethrows REAL,
+				tafreethrows REAL,
+				trebounds REAL,
+				blocks REAL,
+				opointspg REAL,
+				lafieldgoals REAL,
+				minutes REAL,
+				ltrebounds REAL,
+				tfieldgoals REAL,
+				tassists REAL,
+				tturnovers REAL,
+				DRBpct REAL,
+				steals REAL
+									);''')
 
-	laPER = laPERcalc(aPERdict)
+	# for testing
+	# Calculate the initial PERs and insert the values into the database
+	for name, team in p_t.items():
+
+		player = PERCalculator(name, team)
+		CalculatePERs(player)
+		print("Calculated PERs for {}".format(player.name))
+
+		player = vars(player)
+		data = [
+			player.get("name"),
+			player.get("team"),
+			player.get("VOP"),
+			player.get("threepoints"),
+			player.get("afreethrows"),
+			player.get("lpointspg"),
+			player.get("uPER"),
+			player.get("pfouls"),
+			player.get("freethrows"),
+			player.get("afieldgoals"),
+			player.get("fieldgoals"),
+			player.get("lpfouls"),
+			player.get("orebounds"),
+			player.get("ePA"),
+			player.get("lfreethrows"),
+			player.get("lfieldgoals"),
+			player.get("lturnovers"),
+			player.get("lorebounds"),
+			player.get("turnovers"),
+			player.get("lassists"),
+			player.get("assists"),
+			player.get("tafieldgoals"),
+			player.get("lpoints"),
+			player.get("factor"),
+			player.get("tpointspg"),
+			player.get("aPER"),
+			player.get("lafreethrows"),
+			player.get("tafreethrows"),
+			player.get("trebounds"),
+			player.get("blocks"),
+			player.get("opointspg"),
+			player.get("lafieldgoals"),
+			player.get("minutes"),
+			player.get("ltrebounds"),
+			player.get("tfieldgoals"),
+			player.get("tassists"),
+			player.get("tturnovers"),
+			player.get("DRBpct"),
+			player.get("steals")
+		]
+
+		c.execute("INSERT INTO players VALUES(NULL,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", tuple(data))	
+		conn.commit()
+		print("Inserted into the database!")
+	
+
+	# Then wee need to calculate the average league aPER (adjusted PER)
+
+	# First let's create an aPER dictionary by fetching the data from the database
+	c.execute('SELECT name, aPER from players')
+	aPERdict = {num[0]:num[1] for num in c.fetchall()}
+	# Then let's calculate the league average aPER
+	aPERvalues = aPERdict.values()
+	laPER = reduce(lambda x, y: x+y, aPERvalues)/len(aPERvalues)
+	print("Finished making aPER dictionary!")
 
 	# Finally, let's put up the PER!
 
-	PERdict = {}
+	# Let's add a PER column to the database
+	c.execute('ALTER TABLE players ADD COLUMN PER REAL')
+	conn.commit()
 
-	for key, value in aPERdict.items():
-		PERdict[key] = value * (15 / laPER)
+	# Then let's calculate PER for each player and update the database
+	for name, value in aPERdict.items():
+		PER = value * (15 / laPER)
+		c.execute('UPDATE players SET PER=? WHERE name=?;', (PER, name))
+		conn.commit()
+		print("Updated PER for {}".format(name))
 
-	# Then write to file
-
-	with open('PER.txt', 'w') as f:
-		for key, value in PERdict.items():
-			f.write('{},{} \n'.format(key, value))
-
+	conn.close()
 	print("Done!")
+
+
+	#  ----------- The version below was changed on 30.05.2016 ----------------
+
+	# # First we need to create an aPER dictionary
+
+	# aPERdict = {}
+	
+	# for key, value in p_t.items():
+	# 	player = PERCalculator(key, value)
+	# 	CalculatePERs(player)
+	# 	print("Calculated aPER for {} which is {}".format(player.name, player.aPER))
+	# 	aPERdict[player.name] = player.aPER
+	
+	# # Then let's calculate the average league aPER
+
+	# def laPERcalc(dictionary):
+	# 	values = dictionary.values()
+	# 	return reduce(lambda x, y: x+y, values)/len(values)
+
+	# laPER = laPERcalc(aPERdict)
+
+	# # Finally, let's put up the PER!
+
+	# PERdict = {}
+
+	# for key, value in aPERdict.items():
+	# 	PERdict[key] = value * (15 / laPER)
+
+	# # Then write to file
+
+	# with open('PER.txt', 'w') as f:
+	# 	for key, value in PERdict.items():
+	# 		f.write('{},{} \n'.format(key, value))
+
+	# print("Done!")
 
 def player_team(soup):
 
@@ -125,7 +257,7 @@ def player_team(soup):
 
 	return player_team
 
-def CalculatePER(player):
+def CalculatePERs(player):
 
 	global team_soup
 	global teamaverage_soup
@@ -196,4 +328,4 @@ def CalculatePER(player):
 
 
 if __name__ == '__main__':
-	main()
+	main()# We can also close the connection if we are done with it.
